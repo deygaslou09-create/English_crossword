@@ -109,6 +109,14 @@
             margin-bottom: 6px;
         }
 
+        .spell-error {
+            color: #ef4444;
+            font-size: 0.75rem;
+            margin-top: -4px;
+            margin-bottom: 6px;
+            display: none;
+        }
+
         /* Plateau Mots Croisés */
         .crossword-board {
             display: grid;
@@ -205,30 +213,13 @@
             <div id="word-manager-box" class="word-list-box"></div>
 
             <h2>4. Ajouter un mot</h2>
-            <!-- Bloc avec configuration explicite pour le correcteur anglais -->
-            <form id="add-word-form" lang="en" onsubmit="event.preventDefault(); addWordToList();">
-                <input 
-                    type="text" 
-                    id="add-word-input" 
-                    placeholder="MOT (ex: APPLIANCE)" 
-                    lang="en" 
-                    spellcheck="true" 
-                    autocorrect="on" 
-                    autocapitalize="characters" 
-                    autocomplete="on"
-                >
-                <input 
-                    type="text" 
-                    id="add-clue-input" 
-                    placeholder="Définition / Indice" 
-                    lang="en" 
-                    spellcheck="true" 
-                    autocorrect="on" 
-                    autocapitalize="sentences" 
-                    autocomplete="on"
-                >
-                <button type="submit" class="btn btn-sec">Ajouter à la liste</button>
-            </form>
+            <input type="text" id="add-word-input" placeholder="MOT (ex: APPLIANCE)" style="text-transform: uppercase;" oninput="checkSpelling(this, 'word-error')">
+            <div id="word-error" class="spell-error"></div>
+
+            <input type="text" id="add-clue-input" placeholder="Définition / Indice" oninput="checkSpelling(this, 'clue-error')">
+            <div id="clue-error" class="spell-error"></div>
+
+            <button class="btn btn-sec" onclick="addWordToList()">Ajouter à la liste</button>
         </div>
 
         <!-- Panneau de Droite : Jeu -->
@@ -276,8 +267,41 @@
 
     let database = {};
     let currentDirection = 'across';
+    let spellTimeout = null;
 
-    // 2. Synchronisation Firebase
+    // Correcteur orthographique anglais en temps réel
+    function checkSpelling(inputElement, errorElementId) {
+        clearTimeout(spellTimeout);
+        const text = inputElement.value.trim();
+        const errorDiv = document.getElementById(errorElementId);
+
+        if (text.length < 3) {
+            errorDiv.style.display = 'none';
+            return;
+        }
+
+        spellTimeout = setTimeout(() => {
+            fetch('https://api.languagetool.org/v2/check', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `text=${encodeURIComponent(text)}&language=en-US`
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.matches && data.matches.length > 0) {
+                    const match = data.matches[0];
+                    const replacement = match.replacements.length > 0 ? match.replacements[0].value : '';
+                    errorDiv.textContent = `⚠️ Faute possible (${match.message})${replacement ? ' -> ' + replacement : ''}`;
+                    errorDiv.style.display = 'block';
+                } else {
+                    errorDiv.style.display = 'none';
+                }
+            })
+            .catch(() => { errorDiv.style.display = 'none'; });
+        }, 500);
+    }
+
+    // Synchronisation Firebase
     db.ref('themes').on('value', (snapshot) => {
         database = snapshot.val() || {};
         renderThemeCheckboxes();
@@ -369,6 +393,8 @@
         db.ref(`themes/${theme}`).push({ word: rawWord, clue: clue });
         document.getElementById('add-word-input').value = '';
         document.getElementById('add-clue-input').value = '';
+        document.getElementById('word-error').style.display = 'none';
+        document.getElementById('clue-error').style.display = 'none';
     }
 
     function deleteWord(theme, key) {
@@ -482,7 +508,7 @@
             if (col + word.length < SIZE && grid[row][col + word.length] !== null) return false;
         } else {
             if (row > 0 && grid[row - 1][col] !== null) return false;
-            if (row + word.length < SIZE && grid[row + length] !== null) return false;
+            if (row + word.length < SIZE && grid[row + word.length][col] !== null) return false;
         }
 
         let intersections = 0;
