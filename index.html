@@ -53,7 +53,6 @@
             padding-bottom: 4px;
             color: #334155;
         }
-        
         .panel > h2:first-child { margin-top: 0; }
 
         .btn {
@@ -69,10 +68,18 @@
             transition: background 0.2s;
         }
         .btn:hover { background: var(--primary-hover); }
+
         .btn-success { background: #10b981; }
         .btn-success:hover { background: #059669; }
-        .btn-danger { background: #ef4444; width: auto; padding: 2px 6px; font-size: 0.75rem; }
+
+        .btn-danger {
+            background: #ef4444;
+            width: auto;
+            padding: 2px 6px;
+            font-size: 0.75rem;
+        }
         .btn-danger:hover { background: #dc2626; }
+
         .btn-sec { background: #e2e8f0; color: #334155; }
         .btn-sec:hover { background: #cbd5e1; }
 
@@ -148,20 +155,11 @@
             display: none;
         }
 
-        .cell input:focus + .dir-indicator {
-            display: block;
-        }
+        .cell input:focus + .dir-indicator { display: block; }
 
         /* Couleurs de correction */
-        .cell input.correct {
-            background-color: #d1fae5;
-            color: #047857;
-        }
-
-        .cell input.incorrect {
-            background-color: #fee2e2;
-            color: #b91c1c;
-        }
+        .cell input.correct { background-color: #d1fae5; color: #047857; }
+        .cell input.incorrect { background-color: #fee2e2; color: #b91c1c; }
 
         .cell .num {
             position: absolute;
@@ -195,7 +193,6 @@
         <div class="panel">
             <h2>1. Thèmes & Révisions</h2>
             <div id="theme-checkboxes"></div>
-
             <button class="btn" onclick="buildCrossword()">Générer la grille</button>
 
             <h2>2. Créer une nouvelle liste</h2>
@@ -205,7 +202,6 @@
             <h2>3. Modifier les listes</h2>
             <label style="font-size:0.8rem; font-weight:bold;">Sélectionner la liste :</label>
             <select id="current-list-select" onchange="renderWordManager()"></select>
-
             <div id="word-manager-box" class="word-list-box"></div>
 
             <h2>4. Ajouter un mot</h2>
@@ -236,386 +232,414 @@
             </div>
         </div>
     </div>
-<!-- SDK Firebase en version de compatibilité (sans besoin de type="module" ni npm) -->
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
-<script>
-// 1. Ta configuration Firebase
-const firebaseConfig = {
-    apiKey: "AIzaSyBbCcLHREsMtjFIoRGjcfdPXA5RSdBSgNw",
-    authDomain: "crossword-8d3c3.firebaseapp.com",
-    databaseURL: "https://crossword-8d3c3-default-rtdb.firebaseio.com",
-    projectId: "crossword-8d3c3",
-    storageBucket: "crossword-8d3c3.firebasestorage.app",
-    messagingSenderId: "834067773232",
-    appId: "1:834067773232:web:16e6b18d0a626f44597af5",
-    measurementId: "G-EY222Q7PXR"
-};
+    <!-- SDK Firebase en version de compatibilité -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
-// Initialisation
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+    <script>
+    // 1. Configuration Firebase
+    const firebaseConfig = {
+        apiKey: "AIzaSyBbCcLHREsMtjFIoRGjcfdPXA5RSdBSgNw",
+        authDomain: "crossword-8d3c3.firebaseapp.com",
+        databaseURL: "https://crossword-8d3c3-default-rtdb.firebaseio.com",
+        projectId: "crossword-8d3c3",
+        storageBucket: "crossword-8d3c3.firebasestorage.app",
+        messagingSenderId: "834067773232",
+        appId: "1:834067773232:web:16e6b18d0a626f44597af5",
+        measurementId: "G-EY222Q7PXR"
+    };
 
-let database = {};
-let currentDirection = 'across';
+    // Initialisation
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
 
-// 2. Synchronisation en temps réel avec Firebase
-db.ref('themes').on('value', (snapshot) => {
-    database = snapshot.val() || {};
-    renderThemeCheckboxes();
-    renderListDropdown();
-    renderWordManager();
-});
+    let database = {};
+    let currentDirection = 'across';
 
-function renderThemeCheckboxes() {
-    const container = document.getElementById('theme-checkboxes');
-    if (!container) return;
-    container.innerHTML = '';
-    for (let key in database) {
-        const div = document.createElement('div');
-        div.style.marginBottom = '6px';
-        const count = database[key] ? Object.keys(database[key]).length : 0;
-        div.innerHTML = `
-            <label style="font-size: 0.9rem; cursor:pointer;">
-                <input type="checkbox" value="${key}" checked> 
-                <b>${key}</b> (${count} mots)
-            </label>
-        `;
-        container.appendChild(div);
-    }
-}
-
-function renderListDropdown() {
-    const select = document.getElementById('current-list-select');
-    if (!select) return;
-    const currentSelected = select.value;
-    select.innerHTML = '';
-    for (let key in database) {
-        const opt = document.createElement('option');
-        opt.value = key;
-        opt.textContent = key;
-        select.appendChild(opt);
-    }
-    if (currentSelected && database[currentSelected]) {
-        select.value = currentSelected;
-    }
-}
-
-function renderWordManager() {
-    const selectedTheme = document.getElementById('current-list-select')?.value;
-    const container = document.getElementById('word-manager-box');
-    if (!container) return;
-    container.innerHTML = '';
-
-    if (!selectedTheme || !database[selectedTheme]) return;
-
-    Object.entries(database[selectedTheme]).forEach(([key, item]) => {
-        const div = document.createElement('div');
-        div.className = 'word-item';
-        div.innerHTML = `
-            <span><b>${item.word}</b> : ${item.clue}</span>
-            <button class="btn btn-danger" onclick="deleteWord('${selectedTheme}', '${key}')">✕</button>
-        `;
-        container.appendChild(div);
-    });
-}
-
-function createNewTheme() {
-    const themeInput = document.getElementById('new-theme-name');
-    const themeName = themeInput.value.trim().toUpperCase();
-
-    if (!themeName) {
-        alert("Entre un nom de thème valide !");
-        return;
-    }
-
-    db.ref(`themes/${themeName}`).push({ word: "EXEMPLE", clue: "Mot d'exemple" });
-    themeInput.value = '';
-}
-
-async function addWordToList() {
-    const theme = document.getElementById('current-list-select').value;
-    if (!theme) {
-        alert("Crée ou sélectionne d'abord une liste !");
-        return;
-    }
-
-    let rawWord = document.getElementById('add-word-input').value.trim().toUpperCase();
-    const clue = document.getElementById('add-clue-input').value.trim();
-
-    if (!rawWord || !clue) {
-        alert("Remplis le mot et sa définition !");
-        return;
-    }
-
-    db.ref(`themes/${theme}`).push({ word: rawWord, clue: clue });
-    document.getElementById('add-word-input').value = '';
-    document.getElementById('add-clue-input').value = '';
-}
-
-function deleteWord(theme, key) {
-    db.ref(`themes/${theme}/${key}`).remove();
-}
-
-function shuffleArray(array) {
-    let arr = [...array];
-    for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-}
-
-function buildCrossword() {
-    const checkedBoxes = Array.from(document.querySelectorAll('#theme-checkboxes input:checked'));
-    let words = [];
-    
-    checkedBoxes.forEach(cb => {
-        if (database[cb.value]) {
-            Object.values(database[cb.value]).forEach(item => {
-                if (item.word && item.clue) words.push(item);
-            });
-        }
+    // 2. Synchronisation en temps réel avec Firebase
+    db.ref('themes').on('value', (snapshot) => {
+        database = snapshot.val() || {};
+        renderThemeCheckboxes();
+        renderListDropdown();
+        renderWordManager();
     });
 
-    if (words.length === 0) {
-        alert("Coche au moins un thème contenant des mots !");
-        return;
-    }
-
-    // 1. Suppression des doublons
-    const uniqueWords = [];
-    const seenWords = new Set();
-    for (const item of words) {
-        const cleanWord = item.word.trim().toUpperCase();
-        if (!seenWords.has(cleanWord)) {
-            seenWords.add(cleanWord);
-            uniqueWords.push(item);
-        }
-    }
-    words = uniqueWords;
-
-    // 2. Mélange aléatoire
-    words = shuffleArray(words);
-
-    // 3. Limitation à 15 mots max
-    if (words.length > 15) {
-        words = words.slice(0, 15);
-    }
-
-    // 4. Tri par longueur décroissante
-    words.sort((a, b) => b.word.length - a.word.length);
-
-    const SIZE = 15;
-    let grid = Array(SIZE).fill(null).map(() => Array(SIZE).fill(null));
-    let placedWords = [];
-
-    let first = words[0];
-    let initialDir = Math.random() < 0.5 ? 'across' : 'down';
-    let startCol = initialDir === 'across' ? Math.floor((SIZE - first.word.length) / 2) : Math.floor(SIZE / 2);
-    let startRow = initialDir === 'across' ? Math.floor(SIZE / 2) : Math.floor((SIZE - first.word.length) / 2);
-
-    for (let i = 0; i < first.word.length; i++) {
-        let r = initialDir === 'down' ? startRow + i : startRow;
-        let c = initialDir === 'across' ? startCol + i : startCol;
-        grid[r][c] = { char: first.word[i], num: null };
-    }
-    placedWords.push({ word: first.word, clue: first.clue, row: startRow, col: startCol, dir: initialDir });
-
-    for (let w = 1; w < words.length; w++) {
-        let current = words[w];
-        let placed = false;
-        let candidatePlaced = shuffleArray(placedWords);
-
-        for (let p of candidatePlaced) {
-            if (placed) break;
-            for (let i = 0; i < current.word.length; i++) {
-                if (placed) break;
-                for (let j = 0; j < p.word.length; j++) {
-                    if (current.word[i] === p.word[j]) {
-                        let r = p.dir === 'across' ? p.row - i : p.row + j;
-                        let c = p.dir === 'across' ? p.col + j : p.col - i;
-                        let dir = p.dir === 'across' ? 'down' : 'across';
-
-                        if (canPlaceWord(grid, current.word, r, c, dir, SIZE)) {
-                            for (let k = 0; k < current.word.length; k++) {
-                                let kr = dir === 'down' ? r + k : r;
-                                let kc = dir === 'across' ? c + k : c;
-                                if (!grid[kr][kc]) {
-                                    grid[kr][kc] = { char: current.word[k], num: null };
-                                }
-                            }
-                            placedWords.push({ word: current.word, clue: current.clue, row: r, col: c, dir: dir });
-                            placed = true;
-                            break;
-                        }
-                    }
-                }
-            }
+    function renderThemeCheckboxes() {
+        const container = document.getElementById('theme-checkboxes');
+        if (!container) return;
+        container.innerHTML = '';
+        for (let key in database) {
+            const div = document.createElement('div');
+            div.style.marginBottom = '6px';
+            const count = database[key] ? Object.keys(database[key]).length : 0;
+            div.innerHTML = `
+                <label style="font-size: 0.9rem; cursor:pointer;">
+                    <input type="checkbox" value="${key}" checked> 
+                    <b>${key}</b> (${count} mots)
+                </label>
+            `;
+            container.appendChild(div);
         }
     }
 
-    renderBoard(grid, placedWords, SIZE);
-}
-
-function canPlaceWord(grid, word, row, col, dir, SIZE) {
-    if (row < 0 || col < 0) return false;
-    if (dir === 'across' && col + word.length > SIZE) return false;
-    if (dir === 'down' && row + word.length > SIZE) return false;
-
-    if (dir === 'across') {
-        if (col > 0 && grid[row][col - 1] !== null) return false;
-        if (col + word.length < SIZE && grid[row][col + word.length] !== null) return false;
-    } else {
-        if (row > 0 && grid[row - 1][col] !== null) return false;
-        if (row + word.length < SIZE && grid[row + word.length][col] !== null) return false;
-    }
-
-    let intersections = 0;
-
-    for (let i = 0; i < word.length; i++) {
-        let r = dir === 'down' ? row + i : row;
-        let c = dir === 'across' ? col + i : col;
-
-        if (grid[r][c] !== null) {
-            if (grid[r][c].char !== word[i]) return false;
-            intersections++;
-        } else {
-            if (dir === 'across') {
-                if (r > 0 && grid[r - 1][c] !== null) return false;
-                if (r < SIZE - 1 && grid[r + 1][c] !== null) return false;
-            } else {
-                if (c > 0 && grid[r][c - 1] !== null) return false;
-                if (c < SIZE - 1 && grid[r][c + 1] !== null) return false;
-            }
+    function renderListDropdown() {
+        const select = document.getElementById('current-list-select');
+        if (!select) return;
+        const currentSelected = select.value;
+        select.innerHTML = '';
+        for (let key in database) {
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = key;
+            select.appendChild(opt);
+        }
+        if (currentSelected && database[currentSelected]) {
+            select.value = currentSelected;
         }
     }
 
-    return intersections > 0;
-}
+    function renderWordManager() {
+        const selectedTheme = document.getElementById('current-list-select')?.value;
+        const container = document.getElementById('word-manager-box');
+        if (!container) return;
+        container.innerHTML = '';
 
-function renderBoard(grid, placedWords, SIZE) {
-    const container = document.getElementById('board-container');
-    container.innerHTML = '';
+        if (!selectedTheme || !database[selectedTheme]) return;
 
-    let number = 1;
-    placedWords.forEach(pw => {
-        if (!grid[pw.row][pw.col].num) {
-            grid[pw.row][pw.col].num = number++;
-        }
-        pw.number = grid[pw.row][pw.col].num;
-    });
-
-    const board = document.createElement('div');
-    board.className = 'crossword-board';
-    board.style.gridTemplateColumns = `repeat(${SIZE}, var(--cell-size))`;
-
-    const inputMatrix = Array(SIZE).fill(null).map(() => Array(SIZE).fill(null));
-
-    for (let r = 0; r < SIZE; r++) {
-        for (let c = 0; c < SIZE; c++) {
-            const cellDiv = document.createElement('div');
-            const cellData = grid[r][c];
-
-            if (cellData !== null) {
-                cellDiv.className = 'cell white';
-                if (cellData.num) {
-                    const numSpan = document.createElement('span');
-                    numSpan.className = 'num';
-                    numSpan.textContent = cellData.num;
-                    cellDiv.appendChild(numSpan);
-                }
-
-                const input = document.createElement('input');
-                input.dataset.expected = cellData.char;
-                input.dataset.row = r;
-                input.dataset.col = c;
-
-                const dirIndicator = document.createElement('span');
-                dirIndicator.className = 'dir-indicator';
-                dirIndicator.textContent = currentDirection === 'across' ? '→' : '↓';
-
-                input.addEventListener('click', () => {
-                    if (document.activeElement === input) {
-                        currentDirection = currentDirection === 'across' ? 'down' : 'across';
-                        updateDirectionIndicators();
-                    }
-                });
-
-                input.addEventListener('input', (e) => {
-                    e.target.value = e.target.value.toUpperCase();
-                    e.target.classList.remove('correct', 'incorrect');
-                    
-                    if (e.target.value.length >= 1) {
-                        e.target.value = e.target.value.slice(-1);
-                        const currR = parseInt(e.target.dataset.row);
-                        const currC = parseInt(e.target.dataset.col);
-
-                        let nextInput = null;
-                        if (currentDirection === 'across') {
-                            if (currC + 1 < SIZE) nextInput = inputMatrix[currR][currC + 1];
-                        } else {
-                            if (currR + 1 < SIZE) nextInput = inputMatrix[currR + 1][currC];
-                        }
-
-                        if (nextInput) nextInput.focus();
-                    }
-                });
-
-                cellDiv.appendChild(input);
-                cellDiv.appendChild(dirIndicator);
-                inputMatrix[r][c] = input;
-            } else {
-                cellDiv.className = 'cell';
-            }
-            board.appendChild(cellDiv);
-        }
-    }
-
-    container.appendChild(board);
-
-    function updateDirectionIndicators() {
-        document.querySelectorAll('.dir-indicator').forEach(ind => {
-            ind.textContent = currentDirection === 'across' ? '→' : '↓';
+        Object.entries(database[selectedTheme]).forEach(([key, item]) => {
+            const div = document.createElement('div');
+            div.className = 'word-item';
+            div.innerHTML = `
+                <span><b>${item.word}</b> : ${item.clue}</span>
+                <button class="btn btn-danger" onclick="deleteWord('${selectedTheme}', '${key}')">✕</button>
+            `;
+            container.appendChild(div);
         });
     }
 
-    document.getElementById('actions-box').style.display = 'block';
-    document.getElementById('clues-box').style.display = 'grid';
+    function createNewTheme() {
+        const themeInput = document.getElementById('new-theme-name');
+        const themeName = themeInput.value.trim().toUpperCase();
 
-    const acrossUl = document.getElementById('across-clues');
-    const downUl = document.getElementById('down-clues');
-    acrossUl.innerHTML = '';
-    downUl.innerHTML = '';
+        if (!themeName) {
+            alert("Entre un nom de thème valide !");
+            return;
+        }
 
-    placedWords.forEach(pw => {
-        const li = document.createElement('li');
-        li.innerHTML = `<b>${pw.number}.</b> ${pw.clue}`;
-        if (pw.dir === 'across') acrossUl.appendChild(li);
-        else downUl.appendChild(li);
-    });
-}
+        db.ref(`themes/${themeName}`).push({ word: "EXEMPLE", clue: "Mot d'exemple" });
+        themeInput.value = '';
+    }
 
-function checkAnswers() {
-    const inputs = document.querySelectorAll('.cell input');
-    inputs.forEach(input => {
-        const userVal = input.value.trim().toUpperCase();
-        const expectedVal = input.dataset.expected;
+    async function addWordToList() {
+        const theme = document.getElementById('current-list-select').value;
+        if (!theme) {
+            alert("Crée ou sélectionne d'abord une liste !");
+            return;
+        }
 
-        input.classList.remove('correct', 'incorrect');
+        let rawWord = document.getElementById('add-word-input').value.trim().toUpperCase();
+        const clue = document.getElementById('add-clue-input').value.trim();
 
-        if (userVal !== '') {
-            if (userVal === expectedVal) {
-                input.classList.add('correct');
-            } else {
-                input.classList.add('incorrect');
+        if (!rawWord || !clue) {
+            alert("Remplis le mot et sa définition !");
+            return;
+        }
+
+        db.ref(`themes/${theme}`).push({ word: rawWord, clue: clue });
+        document.getElementById('add-word-input').value = '';
+        document.getElementById('add-clue-input').value = '';
+    }
+
+    function deleteWord(theme, key) {
+        db.ref(`themes/${theme}/${key}`).remove();
+    }
+
+    function shuffleArray(array) {
+        let arr = [...array];
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
+
+    function buildCrossword() {
+        const checkedBoxes = Array.from(document.querySelectorAll('#theme-checkboxes input:checked'));
+        let words = [];
+        
+        checkedBoxes.forEach(cb => {
+            if (database[cb.value]) {
+                Object.values(database[cb.value]).forEach(item => {
+                    if (item.word && item.clue) words.push(item);
+                });
+            }
+        });
+
+        if (words.length === 0) {
+            alert("Coche au moins un thème contenant des mots !");
+            return;
+        }
+
+        // 1. Suppression des doublons
+        const uniqueWords = [];
+        const seenWords = new Set();
+        for (const item of words) {
+            const cleanWord = item.word.trim().toUpperCase();
+            if (!seenWords.has(cleanWord)) {
+                seenWords.add(cleanWord);
+                uniqueWords.push(item);
             }
         }
-    });
-}
-</script>
+        words = uniqueWords;
 
+        // 2. Mélange aléatoire
+        words = shuffleArray(words);
 
+        // 3. Limitation à 15 mots max
+        if (words.length > 15) {
+            words = words.slice(0, 15);
+        }
+
+        // 4. Tri par longueur décroissante
+        words.sort((a, b) => b.word.length - a.word.length);
+
+        const SIZE = 15;
+        let grid = Array(SIZE).fill(null).map(() => Array(SIZE).fill(null));
+        let placedWords = [];
+
+        let first = words[0];
+        let initialDir = Math.random() < 0.5 ? 'across' : 'down';
+        let startCol = initialDir === 'across' ? Math.floor((SIZE - first.word.length) / 2) : Math.floor(SIZE / 2);
+        let startRow = initialDir === 'across' ? Math.floor(SIZE / 2) : Math.floor((SIZE - first.word.length) / 2);
+
+        for (let i = 0; i < first.word.length; i++) {
+            let r = initialDir === 'down' ? startRow + i : startRow;
+            let c = initialDir === 'across' ? startCol + i : startCol;
+            grid[r][c] = { char: first.word[i], num: null };
+        }
+        placedWords.push({ word: first.word, clue: first.clue, row: startRow, col: startCol, dir: initialDir });
+
+        for (let w = 1; w < words.length; w++) {
+            let current = words[w];
+            let placed = false;
+            let candidatePlaced = shuffleArray(placedWords);
+
+            for (let p of candidatePlaced) {
+                if (placed) break;
+                for (let i = 0; i < current.word.length; i++) {
+                    if (placed) break;
+                    for (let j = 0; j < p.word.length; j++) {
+                        if (current.word[i] === p.word[j]) {
+                            let r = p.dir === 'across' ? p.row - i : p.row + j;
+                            let c = p.dir === 'across' ? p.col + j : p.col - i;
+                            let dir = p.dir === 'across' ? 'down' : 'across';
+
+                            if (canPlaceWord(grid, current.word, r, c, dir, SIZE)) {
+                                for (let k = 0; k < current.word.length; k++) {
+                                    let kr = dir === 'down' ? r + k : r;
+                                    let kc = dir === 'across' ? c + k : c;
+                                    if (!grid[kr][kc]) {
+                                        grid[kr][kc] = { char: current.word[k], num: null };
+                                    }
+                                }
+                                placedWords.push({ word: current.word, clue: current.clue, row: r, col: c, dir: dir });
+                                placed = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        renderBoard(grid, placedWords, SIZE);
+    }
+
+    function canPlaceWord(grid, word, row, col, dir, SIZE) {
+        if (row < 0 || col < 0) return false;
+        if (dir === 'across' && col + word.length > SIZE) return false;
+        if (dir === 'down' && row + word.length > SIZE) return false;
+
+        if (dir === 'across') {
+            if (col > 0 && grid[row][col - 1] !== null) return false;
+            if (col + word.length < SIZE && grid[row][col + word.length] !== null) return false;
+        } else {
+            if (row > 0 && grid[row - 1][col] !== null) return false;
+            if (row + word.length < SIZE && grid[row + word.length][col] !== null) return false;
+        }
+
+        let intersections = 0;
+
+        for (let i = 0; i < word.length; i++) {
+            let r = dir === 'down' ? row + i : row;
+            let c = dir === 'across' ? col + i : col;
+
+            if (grid[r][c] !== null) {
+                if (grid[r][c].char !== word[i]) return false;
+                intersections++;
+            } else {
+                if (dir === 'across') {
+                    if (r > 0 && grid[r - 1][c] !== null) return false;
+                    if (r < SIZE - 1 && grid[r + 1][c] !== null) return false;
+                } else {
+                    if (c > 0 && grid[r][c - 1] !== null) return false;
+                    if (c < SIZE - 1 && grid[r][c + 1] !== null) return false;
+                }
+            }
+        }
+
+        return intersections > 0;
+    }
+
+    function renderBoard(grid, placedWords, SIZE) {
+        const container = document.getElementById('board-container');
+        container.innerHTML = '';
+
+        let number = 1;
+        placedWords.forEach(pw => {
+            if (!grid[pw.row][pw.col].num) {
+                grid[pw.row][pw.col].num = number++;
+            }
+            pw.number = grid[pw.row][pw.col].num;
+        });
+
+        const board = document.createElement('div');
+        board.className = 'crossword-board';
+        board.style.gridTemplateColumns = `repeat(${SIZE}, var(--cell-size))`;
+
+        const inputMatrix = Array(SIZE).fill(null).map(() => Array(SIZE).fill(null));
+
+        for (let r = 0; r < SIZE; r++) {
+            for (let c = 0; c < SIZE; c++) {
+                const cellDiv = document.createElement('div');
+                const cellData = grid[r][c];
+
+                if (cellData !== null) {
+                    cellDiv.className = 'cell white';
+                    if (cellData.num) {
+                        const numSpan = document.createElement('span');
+                        numSpan.className = 'num';
+                        numSpan.textContent = cellData.num;
+                        cellDiv.appendChild(numSpan);
+                    }
+
+                    const input = document.createElement('input');
+                    input.dataset.expected = cellData.char;
+                    input.dataset.row = r;
+                    input.dataset.col = c;
+
+                    const dirIndicator = document.createElement('span');
+                    dirIndicator.className = 'dir-indicator';
+                    dirIndicator.textContent = currentDirection === 'across' ? '→' : '↓';
+
+                    // Changement de direction au clic
+                    input.addEventListener('click', () => {
+                        if (document.activeElement === input) {
+                            currentDirection = currentDirection === 'across' ? 'down' : 'across';
+                            updateDirectionIndicators();
+                        }
+                    });
+
+                    // Effacement et recul avec la touche Retour arrière (Backspace)
+                    input.addEventListener('keydown', (e) => {
+                        const currR = parseInt(e.target.dataset.row);
+                        const currC = parseInt(e.target.dataset.col);
+
+                        if (e.key === 'Backspace') {
+                            if (e.target.value === '') {
+                                let prevInput = null;
+                                if (currentDirection === 'across') {
+                                    if (currC - 1 >= 0) prevInput = inputMatrix[currR][currC - 1];
+                                } else {
+                                    if (currR - 1 >= 0) prevInput = inputMatrix[currR - 1][currC];
+                                }
+
+                                if (prevInput) {
+                                    prevInput.focus();
+                                    prevInput.value = '';
+                                    prevInput.classList.remove('correct', 'incorrect');
+                                }
+                            } else {
+                                e.target.value = '';
+                                e.target.classList.remove('correct', 'incorrect');
+                            }
+                            e.preventDefault();
+                        }
+                    });
+
+                    // Saisie et passage automatique à la case suivante
+                    input.addEventListener('input', (e) => {
+                        e.target.value = e.target.value.toUpperCase();
+                        e.target.classList.remove('correct', 'incorrect');
+
+                        if (e.target.value.length >= 1) {
+                            e.target.value = e.target.value.slice(-1);
+                            const currR = parseInt(e.target.dataset.row);
+                            const currC = parseInt(e.target.dataset.col);
+
+                            let nextInput = null;
+                            if (currentDirection === 'across') {
+                                if (currC + 1 < SIZE) nextInput = inputMatrix[currR][currC + 1];
+                            } else {
+                                if (currR + 1 < SIZE) nextInput = inputMatrix[currR + 1][currC];
+                            }
+
+                            if (nextInput) nextInput.focus();
+                        }
+                    });
+
+                    cellDiv.appendChild(input);
+                    cellDiv.appendChild(dirIndicator);
+                    inputMatrix[r][c] = input;
+                } else {
+                    cellDiv.className = 'cell';
+                }
+                board.appendChild(cellDiv);
+            }
+        }
+
+        container.appendChild(board);
+
+        function updateDirectionIndicators() {
+            document.querySelectorAll('.dir-indicator').forEach(ind => {
+                ind.textContent = currentDirection === 'across' ? '→' : '↓';
+            });
+        }
+
+        document.getElementById('actions-box').style.display = 'block';
+        document.getElementById('clues-box').style.display = 'grid';
+
+        const acrossUl = document.getElementById('across-clues');
+        const downUl = document.getElementById('down-clues');
+        acrossUl.innerHTML = '';
+        downUl.innerHTML = '';
+
+        placedWords.forEach(pw => {
+            const li = document.createElement('li');
+            li.innerHTML = `<b>${pw.number}.</b> ${pw.clue}`;
+            if (pw.dir === 'across') acrossUl.appendChild(li);
+            else downUl.appendChild(li);
+        });
+    }
+
+    function checkAnswers() {
+        const inputs = document.querySelectorAll('.cell input');
+        inputs.forEach(input => {
+            const userVal = input.value.trim().toUpperCase();
+            const expectedVal = input.dataset.expected;
+
+            input.classList.remove('correct', 'incorrect');
+
+            if (userVal !== '') {
+                if (userVal === expectedVal) {
+                    input.classList.add('correct');
+                } else {
+                    input.classList.add('incorrect');
+                }
+            }
+        });
+    }
+    </script>
 </body>
 </html>
