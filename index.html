@@ -205,8 +205,9 @@
             <div id="word-manager-box" class="word-list-box"></div>
 
             <h2>4. Ajouter un mot</h2>
-            <input type="text" id="add-word-input" placeholder="MOT (ex: APPLIANCE)" style="text-transform: uppercase;">
-            <input type="text" id="add-clue-input" placeholder="Définition / Indice">
+            <!-- Activer le correcteur d'orthographe anglais pour les mots et définitions -->
+            <input type="text" id="add-word-input" placeholder="MOT (ex: APPLIANCE)" style="text-transform: uppercase;" lang="en" spellcheck="true" autocorrect="on" autocomplete="on">
+            <input type="text" id="add-clue-input" placeholder="Définition / Indice" lang="en" spellcheck="true" autocorrect="on" autocomplete="on">
             <button class="btn btn-sec" onclick="addWordToList()">Ajouter à la liste</button>
         </div>
 
