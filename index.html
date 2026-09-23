@@ -205,10 +205,30 @@
             <div id="word-manager-box" class="word-list-box"></div>
 
             <h2>4. Ajouter un mot</h2>
-            <!-- Activer le correcteur d'orthographe anglais pour les mots et définitions -->
-            <input type="text" id="add-word-input" placeholder="MOT (ex: APPLIANCE)" style="text-transform: uppercase;" lang="en" spellcheck="true" autocorrect="on" autocomplete="on">
-            <input type="text" id="add-clue-input" placeholder="Définition / Indice" lang="en" spellcheck="true" autocorrect="on" autocomplete="on">
-            <button class="btn btn-sec" onclick="addWordToList()">Ajouter à la liste</button>
+            <!-- Bloc avec configuration explicite pour le correcteur anglais -->
+            <form id="add-word-form" lang="en" onsubmit="event.preventDefault(); addWordToList();">
+                <input 
+                    type="text" 
+                    id="add-word-input" 
+                    placeholder="MOT (ex: APPLIANCE)" 
+                    lang="en" 
+                    spellcheck="true" 
+                    autocorrect="on" 
+                    autocapitalize="characters" 
+                    autocomplete="on"
+                >
+                <input 
+                    type="text" 
+                    id="add-clue-input" 
+                    placeholder="Définition / Indice" 
+                    lang="en" 
+                    spellcheck="true" 
+                    autocorrect="on" 
+                    autocapitalize="sentences" 
+                    autocomplete="on"
+                >
+                <button type="submit" class="btn btn-sec">Ajouter à la liste</button>
+            </form>
         </div>
 
         <!-- Panneau de Droite : Jeu -->
@@ -234,7 +254,7 @@
         </div>
     </div>
 
-    <!-- SDK Firebase en version de compatibilité -->
+    <!-- SDK Firebase -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
@@ -251,14 +271,13 @@
         measurementId: "G-EY222Q7PXR"
     };
 
-    // Initialisation
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
     let database = {};
     let currentDirection = 'across';
 
-    // 2. Synchronisation en temps réel avec Firebase
+    // 2. Synchronisation Firebase
     db.ref('themes').on('value', (snapshot) => {
         database = snapshot.val() || {};
         renderThemeCheckboxes();
@@ -382,7 +401,6 @@
             return;
         }
 
-        // 1. Suppression des doublons
         const uniqueWords = [];
         const seenWords = new Set();
         for (const item of words) {
@@ -394,15 +412,12 @@
         }
         words = uniqueWords;
 
-        // 2. Mélange aléatoire
         words = shuffleArray(words);
 
-        // 3. Limitation à 15 mots max
         if (words.length > 15) {
             words = words.slice(0, 15);
         }
 
-        // 4. Tri par longueur décroissante
         words.sort((a, b) => b.word.length - a.word.length);
 
         const SIZE = 15;
@@ -467,7 +482,7 @@
             if (col + word.length < SIZE && grid[row][col + word.length] !== null) return false;
         } else {
             if (row > 0 && grid[row - 1][col] !== null) return false;
-            if (row + word.length < SIZE && grid[row + word.length][col] !== null) return false;
+            if (row + word.length < SIZE && grid[row + length] !== null) return false;
         }
 
         let intersections = 0;
@@ -534,7 +549,6 @@
                     dirIndicator.className = 'dir-indicator';
                     dirIndicator.textContent = currentDirection === 'across' ? '→' : '↓';
 
-                    // Changement de direction au clic
                     input.addEventListener('click', () => {
                         if (document.activeElement === input) {
                             currentDirection = currentDirection === 'across' ? 'down' : 'across';
@@ -542,7 +556,6 @@
                         }
                     });
 
-                    // Saisie et suppression automatique (compatible mobile et PC)
                     input.addEventListener('input', (e) => {
                         const currR = parseInt(e.target.dataset.row);
                         const currC = parseInt(e.target.dataset.col);
@@ -573,7 +586,6 @@
                         }
                     });
 
-                    // Touche Retour arrière pour reculer si la case était déjà vide
                     input.addEventListener('keydown', (e) => {
                         if (e.key === 'Backspace' && e.target.value === '') {
                             const currR = parseInt(e.target.dataset.row);
