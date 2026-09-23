@@ -158,8 +158,8 @@
         .cell input:focus + .dir-indicator { display: block; }
 
         /* Couleurs de correction */
-        .cell input.correct { background-color: #d1fae5; color: #047857; }
-        .cell input.incorrect { background-color: #fee2e2; color: #b91c1c; }
+        .cell input.correct { background-color: #d1fae5 !important; color: #047857 !important; }
+        .cell input.incorrect { background-color: #fee2e2 !important; color: #b91c1c !important; }
 
         .cell .num {
             position: absolute;
@@ -541,42 +541,16 @@
                         }
                     });
 
-                    // Effacement et recul avec la touche Retour arrière (Backspace)
-                    input.addEventListener('keydown', (e) => {
+                    // Saisie et suppression automatique (compatible mobile et PC)
+                    input.addEventListener('input', (e) => {
                         const currR = parseInt(e.target.dataset.row);
                         const currC = parseInt(e.target.dataset.col);
+                        const val = e.target.value.toUpperCase();
 
-                        if (e.key === 'Backspace') {
-                            if (e.target.value === '') {
-                                let prevInput = null;
-                                if (currentDirection === 'across') {
-                                    if (currC - 1 >= 0) prevInput = inputMatrix[currR][currC - 1];
-                                } else {
-                                    if (currR - 1 >= 0) prevInput = inputMatrix[currR - 1][currC];
-                                }
-
-                                if (prevInput) {
-                                    prevInput.focus();
-                                    prevInput.value = '';
-                                    prevInput.classList.remove('correct', 'incorrect');
-                                }
-                            } else {
-                                e.target.value = '';
-                                e.target.classList.remove('correct', 'incorrect');
-                            }
-                            e.preventDefault();
-                        }
-                    });
-
-                    // Saisie et passage automatique à la case suivante
-                    input.addEventListener('input', (e) => {
-                        e.target.value = e.target.value.toUpperCase();
                         e.target.classList.remove('correct', 'incorrect');
 
-                        if (e.target.value.length >= 1) {
-                            e.target.value = e.target.value.slice(-1);
-                            const currR = parseInt(e.target.dataset.row);
-                            const currC = parseInt(e.target.dataset.col);
+                        if (val.length > 0) {
+                            e.target.value = val.slice(-1);
 
                             let nextInput = null;
                             if (currentDirection === 'across') {
@@ -586,6 +560,36 @@
                             }
 
                             if (nextInput) nextInput.focus();
+                        } else {
+                            let prevInput = null;
+                            if (currentDirection === 'across') {
+                                if (currC - 1 >= 0) prevInput = inputMatrix[currR][currC - 1];
+                            } else {
+                                if (currR - 1 >= 0) prevInput = inputMatrix[currR - 1][currC];
+                            }
+
+                            if (prevInput) prevInput.focus();
+                        }
+                    });
+
+                    // Touche Retour arrière pour reculer si la case était déjà vide
+                    input.addEventListener('keydown', (e) => {
+                        if (e.key === 'Backspace' && e.target.value === '') {
+                            const currR = parseInt(e.target.dataset.row);
+                            const currC = parseInt(e.target.dataset.col);
+
+                            let prevInput = null;
+                            if (currentDirection === 'across') {
+                                if (currC - 1 >= 0) prevInput = inputMatrix[currR][currC - 1];
+                            } else {
+                                if (currR - 1 >= 0) prevInput = inputMatrix[currR - 1][currC];
+                            }
+
+                            if (prevInput) {
+                                prevInput.focus();
+                                prevInput.value = '';
+                                prevInput.classList.remove('correct', 'incorrect');
+                            }
                         }
                     });
 
